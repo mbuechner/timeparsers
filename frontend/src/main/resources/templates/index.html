@@ -267,6 +267,13 @@
     function enableTooltips() {
       document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
     }
+    
+    function buildApiUrl(endpoint, params = {}) {
+      // Baut eine URL relativ zur aktuellen Seite – funktioniert auch unter /meinpfad/
+      const url = new URL(endpoint, document.baseURI);
+      Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+      return url.toString();
+    }
 
     $(document).ready(function () {
       renderHistory();
@@ -274,7 +281,7 @@
         e.preventDefault();
         const inputVal = $('#input-string').val().trim();
         if (!inputVal) return;
-        $.getJSON(`/parse?value=${encodeURIComponent(inputVal)}`, function (data) {
+        $.getJSON(buildApiUrl('parse', { value: inputVal }), function (data) {
           renderResults(data);
           addToHistory(inputVal, data);
           $('#input-string').val('');
