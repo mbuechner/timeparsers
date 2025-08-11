@@ -268,9 +268,17 @@
       document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
     }
     
+    function currentDir() {
+      let p = location.pathname || '/';
+      if (!p.endsWith('/')) {
+        p = p.slice(0, p.lastIndexOf('/') + 1);
+      }
+      return p || '/';
+    }
+
     function buildApiUrl(endpoint, params = {}) {
-      // Baut eine URL relativ zur aktuellen Seite – funktioniert auch unter /meinpfad/
-      const url = new URL(endpoint, document.baseURI);
+      const baseHref = location.origin + currentDir();
+      const url = new URL(String(endpoint).replace(/^\/+/, ''), baseHref);
       Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
       return url.toString();
     }
