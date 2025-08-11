@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>String-Konvertierung</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+  <style>
+    #history-list .history-entry { cursor: pointer; }
+    #history-list .history-entry:hover { background-color: #f8f9fa; }
+    mark { cursor: pointer; }
+    .debug-icon { cursor: pointer; vertical-align: middle; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .tooltip-inner { text-align: left; max-width: 600px; white-space: pre-wrap; font-family: monospace; }
+  </style>
+</head>
+<body class="bg-light">
+  <div class="container py-4">
+    <h1 class="mb-4">🕒 Test zu Datum/ Zeitspanne</h1>
+
+    <form id="convert-form" class="mb-4">
+      <div class="input-group">
+        <input type="text" class="form-control" id="input-string" placeholder="Gib einen Text ein (z. B. '13. Mai 1978', 'Mai 1970 - Juni 1970')..." required>
+        <button class="btn btn-primary" type="submit">Konvertieren</button>
+      </div>
+    </form>
+
+    <div id="results" class="mb-4 d-none">
+      <h2 class="h5">🔍 Konvertierungen</h2>
+      <ul class="list-group">
+        <li class="list-group-item"><strong>DDB‑Timeparser:</strong> <span id="result-1"></span></li>
+        <li class="list-group-item"><strong>Europeana:</strong> <span id="result-2"></span></li>
+        <li class="list-group-item"><strong>Duckling:</strong> <span id="result-3"></span> <i id="duck-debug-icon" class="bi bi-info-circle-fill debug-icon text-secondary d-none ms-1" data-bs-toggle="tooltip" data-bs-html="true"></i></li>
+      </ul>
+    </div>
+
+    <div id="history" class="d-none">
+      <div class="d-flex justify-content-between align-items-center">
+        <h2 class="h5">📜 Verlauf</h2>
+        <button id="clear-history" class="btn btn-sm btn-outline-danger">Verlauf löschen</button>
+      </div>
+      <div class="row row-cols-1 row-cols-md-3 g-2 mt-2" id="history-list"></div>
+    </div>
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script>
+    const HISTORY_KEY = 'string_conversion_history';
+    const TIME_LABELS = {
+        "time_12000": "Präkambrium",
+        "time_13000": "Paläozoikum",
+        "time_14000": "Trias",
+        "time_15000": "Jura",
+        "time_16000": "Kreide",
+        "time_17000": "Tertiär",
+        "time_18000": "Quartär",
+        "time_33000": "7. Jahrtausend vor Christus",
+        "time_34000": "6. Jahrtausend vor Christus",
+        "time_35000": "5. Jahrtausend vor Christus",
+        "time_36000": "4. Jahrtausend vor Christus",
+        "time_36100": "40. Jahrhundert vor Christus",
+        "time_36200": "39. Jahrhundert vor Christus",
+        "time_36300": "38. Jahrhundert vor Christus",
+        "time_36400": "37. Jahrhundert vor Christus",
+        "time_36500": "36. Jahrhundert vor Christus",
+        "time_36600": "35. Jahrhundert vor Christus",
+        "time_36700": "34. Jahrhundert vor Christus",
+        "time_36800": "33. Jahrhundert vor Christus",
+        "time_36900": "32. Jahrhundert vor Christus",
+        "time_36950": "31. Jahrhundert vor Christus",
+        "time_37000": "3. Jahrtausend vor Christus",
+        "time_37100": "30. Jahrhundert vor Christus",
+        "time_37200": "29. Jahrhundert vor Christus",
+        "time_37300": "28. Jahrhundert vor Christus",
+        "time_37400": "27. Jahrhundert vor Christus",
+        "time_37500": "26. Jahrhundert vor Christus",
+        "time_37600": "25. Jahrhundert vor Christus",
+        "time_37700": "24. Jahrhundert vor Christus",
+        "time_37800": "23. Jahrhundert vor Christus",
+        "time_37900": "22. Jahrhundert vor Christus",
+        "time_37950": "21. Jahrhundert vor Christus",
+        "time_38000": "2. Jahrtausend vor Christus",
+        "time_38100": "20. Jahrhundert vor Christus",
+        "time_38200": "19. Jahrhundert vor Christus",
+        "time_38300": "18. Jahrhundert vor Christus",
+        "time_38400": "17. Jahrhundert vor Christus",
+        "time_38500": "16. Jahrhundert vor Christus",
+        "time_38600": "15. Jahrhundert vor Christus",
+        "time_38700": "14. Jahrhundert vor Christus",
+        "time_38800": "13. Jahrhundert vor Christus",
+        "time_38900": "12. Jahrhundert vor Christus",
+        "time_38950": "11. Jahrhundert vor Christus",
+        "time_39000": "1. Jahrtausend vor Christus",
+        "time_39100": "10. Jahrhundert vor Christus",
+        "time_39200": "9. Jahrhundert vor Christus",
+        "time_39300": "8. Jahrhundert vor Christus",
+        "time_39400": "7. Jahrhundert vor Christus",
+        "time_39500": "6. Jahrhundert vor Christus",
+        "time_39600": "5. Jahrhundert vor Christus",
+        "time_39700": "4. Jahrhundert vor Christus",
+        "time_39800": "3. Jahrhundert vor Christus",
+        "time_39900": "2. Jahrhundert vor Christus",
+        "time_39950": "1. Jahrhundert vor Christus",
+        "time_60100": "1. Jahrhundert",
+        "time_60200": "2. Jahrhundert",
+        "time_60300": "3. Jahrhundert",
+        "time_60400": "4. Jahrhundert",
+        "time_60500": "5. Jahrhundert",
+        "time_60600": "6. Jahrhundert",
+        "time_60700": "7. Jahrhundert",
+        "time_60800": "8. Jahrhundert",
+        "time_60900": "9. Jahrhundert",
+        "time_61000": "10. Jahrhundert",
+        "time_61100": "11. Jahrhundert",
+        "time_61105": "1. Hälfte 11. Jahrhundert",
+        "time_61145": "2. Hälfte 11. Jahrhundert",
+        "time_61200": "12. Jahrhundert",
+        "time_61205": "1. Hälfte 12. Jahrhundert",
+        "time_61245": "2. Hälfte 12. Jahrhundert",
+        "time_61300": "13. Jahrhundert",
+        "time_61305": "1. Hälfte 13. Jahrhundert",
+        "time_61345": "2. Hälfte 13. Jahrhundert",
+        "time_61400": "14. Jahrhundert",
+        "time_61405": "1. Hälfte 14. Jahrhundert",
+        "time_61445": "2. Hälfte 14. Jahrhundert",
+        "time_61500": "15. Jahrhundert",
+        "time_61505": "1. Hälfte 15. Jahrhundert",
+        "time_61545": "2. Hälfte 15. Jahrhundert",
+        "time_61600": "16. Jahrhundert",
+        "time_61605": "1. Hälfte 16. Jahrhundert",
+        "time_61645": "2. Hälfte 16. Jahrhundert",
+        "time_61700": "17. Jahrhundert",
+        "time_61705": "1. Hälfte 17. Jahrhundert",
+        "time_61745": "2. Hälfte 17. Jahrhundert",
+        "time_61800": "18. Jahrhundert",
+        "time_61807": "1. Viertel 18. Jahrhundert",
+        "time_61825": "2. Viertel 18. Jahrhundert",
+        "time_61847": "3. Viertel 18. Jahrhundert",
+        "time_61875": "4. Viertel 18. Jahrhundert",
+        "time_61900": "19. Jahrhundert",
+        "time_61907": "1. Viertel 19. Jahrhundert",
+        "time_61925": "2. Viertel 19. Jahrhundert",
+        "time_61947": "3. Viertel 19. Jahrhundert",
+        "time_61975": "4. Viertel 19. Jahrhundert",
+        "time_62000": "20. Jahrhundert",
+        "time_62010": "1. Dekade 20. Jahrhundert",
+        "time_62020": "2. Dekade 20. Jahrhundert",
+        "time_62030": "3. Dekade 20. Jahrhundert",
+        "time_62040": "4. Dekade 20. Jahrhundert",
+        "time_62050": "5. Dekade 20. Jahrhundert",
+        "time_62060": "6. Dekade 20. Jahrhundert",
+        "time_62070": "7. Dekade 20. Jahrhundert",
+        "time_62080": "8. Dekade 20. Jahrhundert",
+        "time_62090": "9. Dekade 20. Jahrhundert",
+        "time_62095": "10. Dekade 20. Jahrhundert",
+        "time_62100": "21. Jahrhundert",
+        "time_62110": "1. Dekade 21. Jahrhundert",
+        "time_62120": "2. Dekade 21. Jahrhundert"
+      };
+
+
+    function escapeHtml(str){
+      return String(str)
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;')
+        .replace(/'/g,'&#039;');
+    }
+
+    function daysToDate(days, timezone = 'UTC') {
+      const msPerDay = 86400000;
+      const unixEpochOffset = 719164;
+      const daysSinceEpoch = days - unixEpochOffset;
+      const timestampMs = daysSinceEpoch * msPerDay;
+      const date = new Date(timestampMs);
+      const iso = date.toISOString().split('T')[0];
+      return { date, formatted: iso };
+    }
+
+    function withTimespanTooltip(value) {
+      const match = value.match(/^((?:time_\d+(?:\|time_\d+)*))\s(\d+)\|(\d+)$/);
+      if (!match) return escapeHtml(value);
+      const prefixCombined = match[1];
+      const start = parseInt(match[2], 10);
+      const end = parseInt(match[3], 10);
+      const timeCodes = prefixCombined.split('|');
+      const prefixHtml = timeCodes
+        .map(code => `<mark data-bs-toggle="tooltip" title="${escapeHtml(TIME_LABELS[code]||code)}">${escapeHtml(code)}</mark>`)
+        .join('|');
+      const startFormatted = daysToDate(start).formatted;
+      const endFormatted = daysToDate(end).formatted;
+      return `${prefixHtml}&#160;<mark data-bs-toggle="tooltip" title="${startFormatted}">${start}</mark>|<mark data-bs-toggle="tooltip" title="${endFormatted}">${end}</mark>`;
+    }
+
+    const renderResults = (data) => {
+      const ddbOk = data.parser.ddb && data.parser.ddb.status === 'ok';
+      $('#result-1').html(ddbOk ? withTimespanTooltip(data.parser.ddb.value) : '-');
+      const eurOk = data.parser.europeana && data.parser.europeana.status === 'ok';
+      $('#result-2').text(eurOk ? data.parser.europeana.value : '-');
+      const duckOk = data.parser.duckling && data.parser.duckling.status === 'ok';
+      $('#result-3').text(duckOk ? data.parser.duckling.value : '-');
+      const duckDebug = data.parser.duckling && data.parser.duckling.debug;
+      if (duckDebug) {
+        let pretty = '';
+        try { pretty = JSON.stringify(JSON.parse(duckDebug), null, 2); } catch { pretty = String(duckDebug); }
+        $('#duck-debug-icon')
+          .attr('title', escapeHtml(pretty))
+          .removeClass('d-none');
+      } else {
+        $('#duck-debug-icon').addClass('d-none');
+      }
+      $('#results').removeClass('d-none');
+      enableTooltips();
+    };
+
+    const addToHistory = (input, data) => {
+      const history = getHistory();
+      history.unshift({
+        input,
+        ddb: data.parser.ddb && data.parser.ddb.status === 'ok' ? data.parser.ddb.value : '-',
+        europeana: data.parser.europeana && data.parser.europeana.status === 'ok' ? data.parser.europeana.value : '-',
+        duckling: data.parser.duckling && data.parser.duckling.status === 'ok' ? data.parser.duckling.value : '-',
+        duckling_debug: data.parser.duckling && data.parser.duckling.debug ? data.parser.duckling.debug : null
+      });
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 20)));
+      renderHistory();
+    };
+
+    const getHistory = () => {
+      try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; } catch { return []; }
+    };
+
+    const renderHistory = () => {
+      const history = getHistory();
+      const $list = $('#history-list');
+      $list.empty();
+      if (!history.length) return $('#history').addClass('d-none');
+      history.forEach(entry => {
+        const ddbHtml = withTimespanTooltip(entry.ddb);
+        let duckHtml = escapeHtml(entry.duckling);
+        if (entry.duckling_debug) {
+          let pretty = '';
+          try { pretty = JSON.stringify(JSON.parse(entry.duckling_debug), null, 2); } catch { pretty = String(entry.duckling_debug); }
+          const tooltipHtml = escapeHtml(pretty);
+          duckHtml = `${duckHtml} <i class="bi bi-info-circle-fill debug-icon text-secondary ms-1" data-bs-toggle="tooltip" data-bs-html="true" title="${tooltipHtml}"></i>`;
+        }
+        const $card = $(`
+          <div class="col">
+            <div class="card history-entry p-2 small">
+              <div><strong>Eingabe:</strong> ${escapeHtml(entry.input)}</div>
+              <div><strong>DDB‑Timeparser:</strong> ${ddbHtml}</div>
+              <div><strong>Europeana:</strong> ${escapeHtml(entry.europeana)}</div>
+              <div><strong>Duckling:</strong> ${duckHtml}</div>
+            </div>
+          </div>`);
+        $card.find('.history-entry').data('entry', entry);
+        $list.append($card);
+      });
+      $('#history').removeClass('d-none');
+      enableTooltips();
+    };
+
+    const clearHistory = () => { localStorage.removeItem(HISTORY_KEY); $('#history-list').empty(); $('#history').addClass('d-none'); };
+
+    function enableTooltips() {
+      document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
+    }
+
+    $(document).ready(function () {
+      renderHistory();
+      $('#convert-form').on('submit', function (e) {
+        e.preventDefault();
+        const inputVal = $('#input-string').val().trim();
+        if (!inputVal) return;
+        $.getJSON(`/parse?value=${encodeURIComponent(inputVal)}`, function (data) {
+          renderResults(data);
+          addToHistory(inputVal, data);
+          $('#input-string').val('');
+        });
+      });
+      $('#history-list').on('click', '.history-entry', function () {
+        const entry = $(this).data('entry');
+        $('#input-string').val(entry.input);
+        renderResults({ parser: { ddb: { value: entry.ddb, status: 'ok' }, europeana: { value: entry.europeana, status: 'ok' }, duckling: { value: entry.duckling, status: 'ok', debug: entry.duckling_debug } } });
+      });
+      $('#clear-history').on('click', clearHistory);
+    });
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

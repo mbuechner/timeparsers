@@ -1,0 +1,3 @@
+[submodule "external/rd-normalisation-dates"]
+	path = external/rd-normalisation-dates
+	url = https://github.com/europeana/rd-normalisation-dates.git
