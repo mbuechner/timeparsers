@@ -269,10 +269,12 @@
     }
     
     function currentDir() {
+    
       let p = location.pathname || '/';
       if (!p.endsWith('/')) {
-        p = p.slice(0, p.lastIndexOf('/') + 1);
+        p += '/';
       }
+
       return p || '/';
     }
 
