@@ -17,7 +17,7 @@
 </head>
 <body class="bg-light">
   <div class="container py-4">
-    <h1 class="mb-4">🕒 Test zu Datum/ Zeitspanne</h1>
+    <h1 class="mb-4">🕒 Text zu Datum/ Zeitspanne</h1>
 
     <form id="convert-form" class="mb-4">
       <div class="input-group">
@@ -30,8 +30,9 @@
       <h2 class="h5">🔍 Konvertierungen</h2>
       <ul class="list-group">
         <li class="list-group-item"><strong>DDB‑Timeparser:</strong> <span id="result-1"></span></li>
-        <li class="list-group-item"><strong>Europeana:</strong> <span id="result-2"></span></li>
-        <li class="list-group-item"><strong>Duckling:</strong> <span id="result-3"></span> <i id="duck-debug-icon" class="bi bi-info-circle-fill debug-icon text-secondary d-none ms-1" data-bs-toggle="tooltip" data-bs-html="true"></i></li>
+        <li class="list-group-item"><strong>DDB‑Timeparser (neu):</strong> <span id="result-2"></span></li>
+        <li class="list-group-item"><strong>Europeana:</strong> <span id="result-3"></span></li>
+        <li class="list-group-item"><strong>Duckling:</strong> <span id="result-4"></span> <i id="duck-debug-icon" class="bi bi-info-circle-fill debug-icon text-secondary d-none ms-1" data-bs-toggle="tooltip" data-bs-html="true"></i></li>
       </ul>
     </div>
 
@@ -169,18 +170,48 @@
         .replace(/'/g,'&#039;');
     }
 
-    function daysToDate(days, timezone = 'UTC') {
-      const msPerDay = 86400000;
-      const unixEpochOffset = 719164;
-      const daysSinceEpoch = days - unixEpochOffset;
-      const timestampMs = daysSinceEpoch * msPerDay;
-      const date = new Date(timestampMs);
-      const iso = date.toISOString().split('T')[0];
-      return { date, formatted: iso };
+    // Liefert ein ISO-Datum (YYYY-MM-DD), kompatibel zur Java-Berechnung.
+    function daysToISOJavaCompat(days) {
+      // Ziviler JDN für 00:00 UTC des Datums
+      const Z = days + 1_721_424; // 1970-01-01 -> 2440588
+      const CUTOVER_Z = 2_299_161; // 1582-10-15 (Gregorian)
+
+      let y, m, d;
+      if (Z >= CUTOVER_Z) {
+        // Gregorian: Fliegel & Van Flandern
+        const a = Z + 32044;
+        const b = Math.floor((4 * a + 3) / 146097);
+        const c = a - Math.floor(146097 * b / 4);
+        const d1 = Math.floor((4 * c + 3) / 1461);
+        const e = c - Math.floor(1461 * d1 / 4);
+        const m1 = Math.floor((5 * e + 2) / 153);
+        d = e - Math.floor((153 * m1 + 2) / 5) + 1;
+        m = m1 + 3 - 12 * Math.floor(m1 / 10);
+        y = 100 * b + d1 - 4800 + Math.floor(m1 / 10);
+      } else {
+        // Julian
+        const c = Z + 32082;
+        const d1 = Math.floor((4 * c + 3) / 1461);
+        const e = c - Math.floor(1461 * d1 / 4);
+        const m1 = Math.floor((5 * e + 2) / 153);
+        d = e - Math.floor((153 * m1 + 2) / 5) + 1;
+        m = m1 + 3 - 12 * Math.floor(m1 / 10);
+        y = d1 - 4800 + Math.floor(m1 / 10);
+      }
+      
+      // Für ≤ 0 ein Jahr "weiter" (Jahr 0 gibt es nicht)
+      const yAdj = (y <= 0) ? y - 1 : y;
+
+      // ISO-Format mit erweiterter Jahreszahl wie toISOString:
+      const pad = (n, w) => String(Math.abs(n)).padStart(w, '0');
+      const yStr = (0 <= yAdj && yAdj <= 9999) ? String(yAdj).padStart(4, '0') : yAdj;
+      const mStr = String(m).padStart(2, '0');
+      const dStr = String(d).padStart(2, '0');
+      return `${yStr}-${mStr}-${dStr}`;
     }
 
     function withTimespanTooltip(value) {
-      const match = value.match(/^((?:time_\d+(?:\|time_\d+)*))\s(\d+)\|(\d+)$/);
+      const match = value.match(/^((?:time_\d+(?:\|time_\d+)*))\s(\-?\d+)\|(\-?\d+)$/);
       if (!match) return escapeHtml(value);
       const prefixCombined = match[1];
       const start = parseInt(match[2], 10);
@@ -189,18 +220,20 @@
       const prefixHtml = timeCodes
         .map(code => `<mark data-bs-toggle="tooltip" title="${escapeHtml(TIME_LABELS[code]||code)}">${escapeHtml(code)}</mark>`)
         .join('|');
-      const startFormatted = daysToDate(start).formatted;
-      const endFormatted = daysToDate(end).formatted;
+      const startFormatted = daysToISOJavaCompat(start);
+      const endFormatted = daysToISOJavaCompat(end);
       return `${prefixHtml}&#160;<mark data-bs-toggle="tooltip" title="${startFormatted}">${start}</mark>|<mark data-bs-toggle="tooltip" title="${endFormatted}">${end}</mark>`;
     }
 
     const renderResults = (data) => {
       const ddbOk = data.parser.ddb && data.parser.ddb.status === 'ok';
       $('#result-1').html(ddbOk ? withTimespanTooltip(data.parser.ddb.value) : '-');
+      const ddbNewOk = data.parser.ddbNew && data.parser.ddbNew.status === 'ok';
+      $('#result-2').html(ddbNewOk ? withTimespanTooltip(data.parser.ddbNew.value) : '-');
       const eurOk = data.parser.europeana && data.parser.europeana.status === 'ok';
-      $('#result-2').text(eurOk ? data.parser.europeana.value : '-');
+      $('#result-3').text(eurOk ? data.parser.europeana.value : '-');
       const duckOk = data.parser.duckling && data.parser.duckling.status === 'ok';
-      $('#result-3').text(duckOk ? data.parser.duckling.value : '-');
+      $('#result-4').text(duckOk ? data.parser.duckling.value : '-');
       const duckDebug = data.parser.duckling && data.parser.duckling.debug;
       if (duckDebug) {
         let pretty = '';
@@ -220,6 +253,7 @@
       history.unshift({
         input,
         ddb: data.parser.ddb && data.parser.ddb.status === 'ok' ? data.parser.ddb.value : '-',
+        ddbNew: data.parser.ddbNew && data.parser.ddbNew.status === 'ok' ? data.parser.ddbNew.value : '-',
         europeana: data.parser.europeana && data.parser.europeana.status === 'ok' ? data.parser.europeana.value : '-',
         duckling: data.parser.duckling && data.parser.duckling.status === 'ok' ? data.parser.duckling.value : '-',
         duckling_debug: data.parser.duckling && data.parser.duckling.debug ? data.parser.duckling.debug : null
@@ -238,7 +272,8 @@
       $list.empty();
       if (!history.length) return $('#history').addClass('d-none');
       history.forEach(entry => {
-        const ddbHtml = withTimespanTooltip(entry.ddb);
+        const ddbHtml = entry.ddb ? withTimespanTooltip(entry.ddb) : '';
+        const ddbNewHtml = entry.ddbNew ? withTimespanTooltip(entry.ddbNew) : '';
         let duckHtml = escapeHtml(entry.duckling);
         if (entry.duckling_debug) {
           let pretty = '';
@@ -251,6 +286,7 @@
             <div class="card history-entry p-2 small">
               <div><strong>Eingabe:</strong> ${escapeHtml(entry.input)}</div>
               <div><strong>DDB‑Timeparser:</strong> ${ddbHtml}</div>
+              <div><strong>DDB‑Timeparser (neu):</strong> ${ddbNewHtml}</div>
               <div><strong>Europeana:</strong> ${escapeHtml(entry.europeana)}</div>
               <div><strong>Duckling:</strong> ${duckHtml}</div>
             </div>
@@ -300,7 +336,7 @@
       $('#history-list').on('click', '.history-entry', function () {
         const entry = $(this).data('entry');
         $('#input-string').val(entry.input);
-        renderResults({ parser: { ddb: { value: entry.ddb, status: 'ok' }, europeana: { value: entry.europeana, status: 'ok' }, duckling: { value: entry.duckling, status: 'ok', debug: entry.duckling_debug } } });
+        renderResults({ parser: { ddb: { value: entry.ddb, status: 'ok' }, ddbNew: { value: entry.ddbNew, status: 'ok' }, europeana: { value: entry.europeana, status: 'ok' }, duckling: { value: entry.duckling, status: 'ok', debug: entry.duckling_debug } } });
       });
       $('#clear-history').on('click', clearHistory);
     });

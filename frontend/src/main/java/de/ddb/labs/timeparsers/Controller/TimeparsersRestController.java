@@ -18,6 +18,7 @@ package de.ddb.labs.timeparsers.Controller;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.fiz.ddb.spark.transformation.util.timeparser.TimeParser;
+import de.fiz.ddb.spark.transformation.util.timeparser.TimeParserNew;
 import europeana.rnd.dataprocessing.dates.DatesNormaliser;
 import europeana.rnd.dataprocessing.dates.Match;
 import europeana.rnd.dataprocessing.dates.MatchId;
@@ -76,6 +77,7 @@ class TimeparsersRestController {
     @EventListener(ApplicationReadyEvent.class)
     public void doSomethingAfterStartup() throws Exception {
         TimeParser.init("myTransformationProcessId", "myTransformationStatusId");
+        TimeParserNew.init("myNewTransformationProcessId", "myNewTransformationStatusId");
     }
 
     @RequestMapping(
@@ -104,6 +106,21 @@ class TimeparsersRestController {
             LOG.error("{}: {}", value, e.getMessage());
             ddbResponse.put("status", "error");
             ddbResponse.put("message", e.getMessage());
+        }
+
+        // DDB-Timeparser NEW!
+        final Map<String, Object> ddbNewResponse = new HashMap<>();
+        ddbNewResponse.put("status", "no_match");
+        try {
+            final String ddbTimeparser = TimeParserNew.parseTime(value, "");
+            if (!ddbTimeparser.isBlank()) {
+                ddbNewResponse.put("status", "ok");
+                ddbNewResponse.put("value", ddbTimeparser);
+            }
+        } catch (Exception e) {
+            LOG.error("{}: {}", value, e.getMessage());
+            ddbNewResponse.put("status", "error");
+            ddbNewResponse.put("message", e.getMessage());
         }
 
         // Europeana-Timeparser
@@ -167,6 +184,7 @@ class TimeparsersRestController {
 
         final Map<String, Object> parsers = new HashMap<>();
         parsers.put("ddb", ddbResponse);
+        parsers.put("ddbNew", ddbNewResponse);
         parsers.put("europeana", europeanaResponse);
         parsers.put("duckling", ducklingResponse);
 
