@@ -29,8 +29,12 @@ import europeana.rnd.dataprocessing.dates.Match;
 import europeana.rnd.dataprocessing.dates.MatchId;
 import europeana.rnd.dataprocessing.dates.edtf.EdtfSerializer;
 import jakarta.servlet.http.HttpServletRequest;
+import java.io.FileNotFoundException;
+import java.io.InputStream;
 import java.io.StringReader;
-import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZonedDateTime;
@@ -95,13 +99,26 @@ class TimeparsersRestController {
         TimeParser.init("myTransformationProcessId", "myTransformationStatusId");
         TimeParserNew.init("myNewTransformationProcessId", "myNewTransformationStatusId");
 
-        final URL configFile = getClass().getClassLoader().getResource("conf/heideltime/config.props");
-        // final URL configFile = getClass().getClassLoader().getResource("annotator/IntervalTagger.xml");
+        // final URL configFile = getClass().getClassLoader().getResource("conf/heideltime/config.props");
+        final String resourceName = "conf/heideltime/config.props";
+
+        // Temp-Datei erzeugen
+        final Path tempFile = Files.createTempFile("heideltime-", ".props");
+        tempFile.toFile().deleteOnExit();
+
+        // Resource laden und in Temp-Datei kopieren
+        try (InputStream in = TimeparsersRestController.class.getClassLoader().getResourceAsStream(resourceName)) {
+            if (in == null) {
+                throw new FileNotFoundException("Resource nicht gefunden: " + resourceName);
+            }
+            Files.copy(in, tempFile, StandardCopyOption.REPLACE_EXISTING);
+        }
+
         heidelTime = new HeidelTimeStandalone(
                 Language.GERMAN,
                 DocumentType.SCIENTIFIC, // oder COLLOQUIAL/NARRATIVES – je nach Texttyp
                 OutputType.TIMEML, // alternativ XMI
-                configFile.getPath(),
+                tempFile.toString(),
                 POSTagger.NO, // bessere Qualität als NO
                 false // intervall tagging
         );

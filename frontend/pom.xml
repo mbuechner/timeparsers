@@ -80,16 +80,7 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
-                <configuration>
-                    <requiresUnpack>
-                        <dependency>
-                            <groupId>com.github.heideltime</groupId>
-                            <artifactId>heideltime</artifactId>
-                        </dependency>
-                    </requiresUnpack>
-                </configuration>
             </plugin>
         </plugins>
     </build>
-
 </project>

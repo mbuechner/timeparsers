@@ -34,3 +34,4 @@ build/
 
 external/
 /frontend/src/main/resources/.env
+/Dockerfile.bak
