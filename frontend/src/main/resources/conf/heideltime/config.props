@@ -1,0 +1,48 @@
+# --- Pflicht für die meisten Sprachen ---
+# treeTaggerHome = /opt/treetagger    # Beispiel: absoluter Pfad zur TreeTagger-Installation
+
+# --- Optional: nur wenn gebraucht (hier leer lassen/entfernen) ---
+# chineseTokenizerPath = /opt/treetagger/chinese-tokenizer/
+# sent_model_path = /opt/jvntextpro/models/jvnsensegmenter
+# word_model_path = /opt/jvntextpro/models/jvnsegmenter
+# pos_model_path  = /opt/jvntextpro/models/jvnpostag/maxent
+# model_path      = /opt/stanfordpostagger/models/arabic.tagger
+# config_path     = /opt/stanfordpostagger/tagger.config
+# hunpos_path     = /opt/hunpos/
+# hunpos_model_name = model.hunpos.mte5.defnpout
+
+# --- Welche TIMEX-Typen annotiert werden sollen ---
+considerDate     = true
+considerTime     = true
+considerDuration = true    # für „seit 3 Wochen“, „zwischen … und …“
+considerSet      = true    # wenn du Wiederholungen/Serien willst („jeden Montag“)
+
+# DO NOT CHANGE THE FOLLOWING
+################################
+# Relative path of type system in HeidelTime home directory
+typeSystemHome = desc/type/HeidelTime_TypeSystem.xml
+
+# Relative path of dkpro type system in HeidelTime home directory
+typeSystemHome_DKPro = desc/type/DKPro_TypeSystem.xml
+
+# Name of uima-context variables...
+# ...for date-consideration
+uimaVarDate = Date
+
+# ...for duration-consideration
+uimaVarDuration = Duration
+
+# ...for language
+uimaVarLanguage = Language
+
+# ...for set-consideration
+uimaVarSet = Set
+
+# ...for time-consideration
+uimaVarTime = Time
+
+# ...for temponym-consideration
+uimaVarTemponym = Temponym
+
+# ...for type to process
+uimaVarTypeToProcess = Type

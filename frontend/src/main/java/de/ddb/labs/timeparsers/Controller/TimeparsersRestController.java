@@ -19,20 +19,28 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.fiz.ddb.spark.transformation.util.timeparser.TimeParser;
 import de.fiz.ddb.spark.transformation.util.timeparser.TimeParserNew;
+import de.unihd.dbs.heideltime.standalone.DocumentType;
+import de.unihd.dbs.heideltime.standalone.HeidelTimeStandalone;
+import de.unihd.dbs.heideltime.standalone.OutputType;
+import de.unihd.dbs.heideltime.standalone.POSTagger;
+import de.unihd.dbs.uima.annotator.heideltime.resources.Language;
 import europeana.rnd.dataprocessing.dates.DatesNormaliser;
 import europeana.rnd.dataprocessing.dates.Match;
 import europeana.rnd.dataprocessing.dates.MatchId;
 import europeana.rnd.dataprocessing.dates.edtf.EdtfSerializer;
 import jakarta.servlet.http.HttpServletRequest;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
+import java.io.StringReader;
+import java.net.URL;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
@@ -51,6 +59,10 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
 
 @RestController
 @CrossOrigin(origins = "*", allowedHeaders = "*", maxAge = 3600)
@@ -70,6 +82,10 @@ class TimeparsersRestController {
     @Value("${duckling.url}")
     private String ducklingUrl;
 
+    private HeidelTimeStandalone heidelTime;
+
+    private DocumentBuilderFactory dbf;
+
     public TimeparsersRestController() {
         edn = new DatesNormaliser();
     }
@@ -78,6 +94,27 @@ class TimeparsersRestController {
     public void doSomethingAfterStartup() throws Exception {
         TimeParser.init("myTransformationProcessId", "myTransformationStatusId");
         TimeParserNew.init("myNewTransformationProcessId", "myNewTransformationStatusId");
+
+        final URL configFile = getClass().getClassLoader().getResource("conf/heideltime/config.props");
+        // final URL configFile = getClass().getClassLoader().getResource("annotator/IntervalTagger.xml");
+        heidelTime = new HeidelTimeStandalone(
+                Language.GERMAN,
+                DocumentType.SCIENTIFIC, // oder COLLOQUIAL/NARRATIVES – je nach Texttyp
+                OutputType.TIMEML, // alternativ XMI
+                configFile.getPath(),
+                POSTagger.NO, // bessere Qualität als NO
+                false // intervall tagging
+        );
+
+        dbf = DocumentBuilderFactory.newInstance();
+        dbf.setNamespaceAware(false);
+        dbf.setValidating(false);
+
+        // DTD- und externe Entitäten deaktivieren
+        dbf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", false);
+        dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
+        dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
     }
 
     @RequestMapping(
@@ -141,16 +178,34 @@ class TimeparsersRestController {
             europeanaResponse.put("message", e.getMessage());
         }
 
+        // Heideltime
+        final Map<String, Object> heidelResponse = new HashMap<>();
+        heidelResponse.put("status", "no_match");
+
+        try {
+            final String heidel = heidelTime.process(value);
+            heidelResponse.put("debug", heidel);
+            final List<String[]> values = extractTypesAndValues(heidel);
+            if (!values.isEmpty()) {
+                heidelResponse.put("status", "ok");
+                heidelResponse.put("type", values.getFirst()[0]);
+                heidelResponse.put("value", values.getFirst()[1]);
+            }
+        } catch (Exception e) {
+            heidelResponse.put("status", "error");
+            heidelResponse.put("message", e.getMessage());
+        }
+
         // Duckling
         final Map<String, Object> ducklingResponse = new HashMap<>();
         ducklingResponse.put("status", "no_match");
-        final String form = "locale=de_DE&dims=[\"time\"]&tz=UTC&text=" + URLEncoder.encode(value, StandardCharsets.UTF_8);
+        final String form = "locale=\"de_DE\"&text=\"" + value + "\"&dims=\"[\"time\"]\"&tz=\"UTC\"";
         final RequestBody body = RequestBody.create(
                 form, okhttp3.MediaType.get("application/x-www-form-urlencoded; charset=utf-8")
         );
 
         final String fullDucklingUrl = ducklingUrl + (ducklingUrl.endsWith("/") ? "parse" : "/parse");
-        LOG.info("Start request at Duckling under {}", fullDucklingUrl);
+        LOG.info("Start request at Duckling under {} with '{}'", fullDucklingUrl, form);
 
         final Request okreq = new Request.Builder()
                 .url(fullDucklingUrl)
@@ -158,25 +213,24 @@ class TimeparsersRestController {
                 .build();
 
         try (final Response okresp = httpClient.newCall(okreq).execute()) {
-            if (okresp.isSuccessful()) {
 
-                final String json = okresp.body().string();
-                final JsonNode root = objectMapper.readTree(json);
+            final String json = okresp.body().string();
+            final JsonNode root = objectMapper.readTree(json);
 
-                LOG.debug("Duckling says: {}", root.toPrettyString());
-                ducklingResponse.put("debug", root.toPrettyString());
-                for (JsonNode node : root) {
-                    if (!"time".equals(node.path("dim").asText())) {
-                        continue;
-                    }
-                    String edtf = ducklingTimeToEDTF(node);
-                    if (edtf != null) {
-                        ducklingResponse.put("status", "ok");
-                        ducklingResponse.put("value", edtf);
-                        break; // nur erstes Match
-                    }
+            LOG.debug("Duckling says: {}", root.toPrettyString());
+            ducklingResponse.put("debug", root.toPrettyString());
+            for (JsonNode node : root) {
+                if (!"time".equals(node.path("dim").asText())) {
+                    continue;
+                }
+                final String edtf = ducklingTimeToEDTF(node);
+                if (edtf != null) {
+                    ducklingResponse.put("status", "ok");
+                    ducklingResponse.put("value", edtf);
+                    break; // nur erstes Match
                 }
             }
+
         } catch (Exception e) {
             ducklingResponse.put("status", "error");
             ducklingResponse.put("message", e.getMessage());
@@ -186,6 +240,7 @@ class TimeparsersRestController {
         parsers.put("ddb", ddbResponse);
         parsers.put("ddbNew", ddbNewResponse);
         parsers.put("europeana", europeanaResponse);
+        parsers.put("heideltime", heidelResponse);
         parsers.put("duckling", ducklingResponse);
 
         response.put("value", value);
@@ -304,5 +359,23 @@ class TimeparsersRestController {
             default ->
                 null; // andere Typen ignorieren
         };
+    }
+
+    public List<String[]> extractTypesAndValues(String xmlData) throws Exception {
+        final List<String[]> list = new ArrayList<>();
+
+        final DocumentBuilder db = dbf.newDocumentBuilder();
+        final Document doc = db.parse(new InputSource(new StringReader(xmlData)));
+        doc.getDocumentElement().normalize();
+
+        final NodeList nodes = doc.getElementsByTagName("TIMEX3");
+        for (int i = 0; i < nodes.getLength(); i++) {
+            final Element el = (Element) nodes.item(i);
+            final String type = el.getAttribute("type");
+            final String value = el.getAttribute("value");
+            list.add(new String[]{type, value});
+        }
+
+        return list;
     }
 }

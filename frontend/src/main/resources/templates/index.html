@@ -30,9 +30,10 @@
       <h2 class="h5">🔍 Konvertierungen</h2>
       <ul class="list-group">
         <li class="list-group-item"><strong>DDB‑Timeparser:</strong> <span id="result-1"></span></li>
-        <li class="list-group-item"><strong>DDB‑Timeparser (neu):</strong> <span id="result-2"></span></li>
+        <li class="list-group-item"><strong>DDB‑Timeparser (überarbeitet):</strong> <span id="result-2"></span></li>
         <li class="list-group-item"><strong>Europeana:</strong> <span id="result-3"></span></li>
         <li class="list-group-item"><strong>Duckling:</strong> <span id="result-4"></span> <i id="duck-debug-icon" class="bi bi-info-circle-fill debug-icon text-secondary d-none ms-1" data-bs-toggle="tooltip" data-bs-html="true"></i></li>
+        <li class="list-group-item"><strong>Heideltime:</strong> <span id="result-5"></span> <i id="heidel-debug-icon" class="bi bi-info-circle-fill debug-icon text-secondary d-none ms-1" data-bs-toggle="tooltip" data-bs-html="true"></i></li>
       </ul>
     </div>
 
@@ -41,7 +42,7 @@
         <h2 class="h5">📜 Verlauf</h2>
         <button id="clear-history" class="btn btn-sm btn-outline-danger">Verlauf löschen</button>
       </div>
-      <div class="row row-cols-1 row-cols-md-3 g-2 mt-2" id="history-list"></div>
+      <div class="row row-cols-1 row-cols-md-2 g-2 mt-2" id="history-list"></div>
     </div>
   </div>
 
@@ -226,12 +227,16 @@
     }
 
     const renderResults = (data) => {
+      
       const ddbOk = data.parser.ddb && data.parser.ddb.status === 'ok';
       $('#result-1').html(ddbOk ? withTimespanTooltip(data.parser.ddb.value) : '-');
+      
       const ddbNewOk = data.parser.ddbNew && data.parser.ddbNew.status === 'ok';
       $('#result-2').html(ddbNewOk ? withTimespanTooltip(data.parser.ddbNew.value) : '-');
+      
       const eurOk = data.parser.europeana && data.parser.europeana.status === 'ok';
       $('#result-3').text(eurOk ? data.parser.europeana.value : '-');
+      
       const duckOk = data.parser.duckling && data.parser.duckling.status === 'ok';
       $('#result-4').text(duckOk ? data.parser.duckling.value : '-');
       const duckDebug = data.parser.duckling && data.parser.duckling.debug;
@@ -243,6 +248,17 @@
           .removeClass('d-none');
       } else {
         $('#duck-debug-icon').addClass('d-none');
+      }
+      
+      const heidelOk = data.parser.heideltime && data.parser.heideltime.status === 'ok';
+      $('#result-5').text(heidelOk ? data.parser.heideltime.value : '-');
+      const heidelDebug = data.parser.heideltime && data.parser.heideltime.debug;
+      if (heidelDebug) {
+        $('#heidel-debug-icon')
+          .attr('title', escapeHtml(String(heidelDebug)))
+          .removeClass('d-none');
+      } else {
+        $('#heidel-debug-icon').addClass('d-none');
       }
       $('#results').removeClass('d-none');
       enableTooltips();
@@ -256,7 +272,9 @@
         ddbNew: data.parser.ddbNew && data.parser.ddbNew.status === 'ok' ? data.parser.ddbNew.value : '-',
         europeana: data.parser.europeana && data.parser.europeana.status === 'ok' ? data.parser.europeana.value : '-',
         duckling: data.parser.duckling && data.parser.duckling.status === 'ok' ? data.parser.duckling.value : '-',
-        duckling_debug: data.parser.duckling && data.parser.duckling.debug ? data.parser.duckling.debug : null
+        duckling_debug: data.parser.duckling && data.parser.duckling.debug ? data.parser.duckling.debug : null,
+        heideltime: data.parser.heideltime && data.parser.heideltime.status === 'ok' ? data.parser.heideltime.value : '-',
+        heideltime_debug: data.parser.heideltime && data.parser.heideltime.debug ? data.parser.heideltime.debug : null
       });
       localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 20)));
       renderHistory();
@@ -274,21 +292,27 @@
       history.forEach(entry => {
         const ddbHtml = entry.ddb ? withTimespanTooltip(entry.ddb) : '';
         const ddbNewHtml = entry.ddbNew ? withTimespanTooltip(entry.ddbNew) : '';
-        let duckHtml = escapeHtml(entry.duckling);
+        let duckHtml = entry.duckling ? escapeHtml(entry.duckling) : "-";
         if (entry.duckling_debug) {
           let pretty = '';
           try { pretty = JSON.stringify(JSON.parse(entry.duckling_debug), null, 2); } catch { pretty = String(entry.duckling_debug); }
           const tooltipHtml = escapeHtml(pretty);
           duckHtml = `${duckHtml} <i class="bi bi-info-circle-fill debug-icon text-secondary ms-1" data-bs-toggle="tooltip" data-bs-html="true" title="${tooltipHtml}"></i>`;
         }
+        let heidelHtml = entry.heideltime ? escapeHtml(entry.heideltime) : "-";
+        if (entry.heideltime_debug) {
+          const tooltipHtml =  escapeHtml(String(entry.heideltime_debug));
+          heidelHtml = `${heidelHtml} <i class="bi bi-info-circle-fill debug-icon text-secondary ms-1" data-bs-toggle="tooltip" data-bs-html="false" title="${tooltipHtml}"></i>`;
+        }
         const $card = $(`
           <div class="col">
             <div class="card history-entry p-2 small">
               <div><strong>Eingabe:</strong> ${escapeHtml(entry.input)}</div>
               <div><strong>DDB‑Timeparser:</strong> ${ddbHtml}</div>
-              <div><strong>DDB‑Timeparser (neu):</strong> ${ddbNewHtml}</div>
+              <div><strong>DDB‑Timeparser (überarbeitet):</strong> ${ddbNewHtml}</div>
               <div><strong>Europeana:</strong> ${escapeHtml(entry.europeana)}</div>
               <div><strong>Duckling:</strong> ${duckHtml}</div>
+              <div><strong>Heideltime:</strong> ${heidelHtml}</div>
             </div>
           </div>`);
         $card.find('.history-entry').data('entry', entry);
@@ -336,7 +360,7 @@
       $('#history-list').on('click', '.history-entry', function () {
         const entry = $(this).data('entry');
         $('#input-string').val(entry.input);
-        renderResults({ parser: { ddb: { value: entry.ddb, status: 'ok' }, ddbNew: { value: entry.ddbNew, status: 'ok' }, europeana: { value: entry.europeana, status: 'ok' }, duckling: { value: entry.duckling, status: 'ok', debug: entry.duckling_debug } } });
+        renderResults({ parser: { ddb: { value: entry.ddb, status: 'ok' }, ddbNew: { value: entry.ddbNew, status: 'ok' }, europeana: { value: entry.europeana, status: 'ok' }, duckling: { value: entry.duckling, status: 'ok', debug: entry.duckling_debug }, heideltime: { value: entry.heideltime, status: 'ok', debug: entry.heideltime_debug } } });
       });
       $('#clear-history').on('click', clearHistory);
     });
