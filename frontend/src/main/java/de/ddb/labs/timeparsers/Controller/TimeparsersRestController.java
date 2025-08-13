@@ -32,6 +32,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.io.StringReader;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -216,7 +218,7 @@ class TimeparsersRestController {
         // Duckling
         final Map<String, Object> ducklingResponse = new HashMap<>();
         ducklingResponse.put("status", "no_match");
-        final String form = "locale=\"de_DE\"&text=\"" + value + "\"&dims=\"[\"time\"]\"&tz=\"UTC\"";
+        final String form = "locale=de_DE&dims=[\"time\"]&tz=UTC&text=" + URLEncoder.encode(value, StandardCharsets.UTF_8);
         final RequestBody body = RequestBody.create(
                 form, okhttp3.MediaType.get("application/x-www-form-urlencoded; charset=utf-8")
         );
