@@ -10,6 +10,6 @@ WORKDIR /tmp/rd-normalisation-dates
 RUN mvn -B clean install -DskipTests && rm -rf /tmp/rd-normalisation-dates
 COPY frontend /home/timeparsers
 WORKDIR /home/timeparsers/
-RUN mvn -B dependency:go-offline && mvn -B clean package
-CMD ["mvn", "spring-boot:run"]
+RUN mvn -B clean package
+CMD ["java", "-Xms128M", "-Xmx512M", "-jar", "target/timeparsers.jar"]
 EXPOSE 8080
