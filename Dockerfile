@@ -40,5 +40,5 @@ RUN mvn -B clean package
 # cleanup
 RUN apk del .build-deps;
 
-CMD ["java", "-Xms128M", "-Xmx512M", "-jar", "target/timeparsers.jar"]
+CMD ["java", "-Xms512M", "-Xmx1G", "-jar", "target/timeparsers.jar"]
 EXPOSE 8080
