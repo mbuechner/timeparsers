@@ -1,21 +1,50 @@
-# --- Pflicht für die meisten Sprachen ---
-# treeTaggerHome = /opt/treetagger    # Beispiel: absoluter Pfad zur TreeTagger-Installation
+##           MAIN             ##
+################################
+# Consideration of different timex3-types
+# Date
+considerDate = true
 
-# --- Optional: nur wenn gebraucht (hier leer lassen/entfernen) ---
-# chineseTokenizerPath = /opt/treetagger/chinese-tokenizer/
-# sent_model_path = /opt/jvntextpro/models/jvnsensegmenter
-# word_model_path = /opt/jvntextpro/models/jvnsegmenter
-# pos_model_path  = /opt/jvntextpro/models/jvnpostag/maxent
-# model_path      = /opt/stanfordpostagger/models/arabic.tagger
-# config_path     = /opt/stanfordpostagger/tagger.config
-# hunpos_path     = /opt/hunpos/
-# hunpos_model_name = model.hunpos.mte5.defnpout
+# Duration
+considerDuration = true
 
-# --- Welche TIMEX-Typen annotiert werden sollen ---
-considerDate     = true
-considerTime     = true
-considerDuration = true    # für „seit 3 Wochen“, „zwischen … und …“
-considerSet      = true    # wenn du Wiederholungen/Serien willst („jeden Montag“)
+# Set
+considerSet = true
+
+# Time
+considerTime = true
+
+# Temponyms (make sure you know what you do if you set this to "true")
+considerTemponym = false
+
+###################################
+# Path to TreeTagger home directory
+###################################
+# Ensure there is no white space in path (try to escape white spaces)
+treeTaggerHome = /opt/treetagger
+# This one is only necessary if you want to process chinese documents.
+chineseTokenizerPath = 
+
+##################################
+# paths to JVnTextPro model paths:
+##################################
+# sent_model_path = SET ME IN CONFIG.PROPS! (e.g., /home/jannik/jvntextpro/models/jvnsensegmenter)
+# word_model_path = SET ME IN CONFIG.PROPS! (e.g., /home/jannik/jvntextpro/models/jvnsegmenter)
+# pos_model_path = SET ME IN CONFIG.PROPS! (e.g., /home/jannik/jvntextpro/models/jvnpostag/maxent)
+
+#####################################################
+# paths to Stanford POS Tagger model or config files:
+#####################################################
+# model_path = SET ME IN CONFIG.PROPS! (e.g., /home/jannik/stanford-postagger-full-2014-01-04/models/arabic.tagger)
+# leave this unset if you do not need one (e.g., /home/jannik/stanford-postagger-full-2014-01-04/tagger.config)
+# config_path = 
+
+########################################
+## paths to hunpos and its tagger files:
+########################################
+# hunpos_path = SET ME IN CONFIG.PROPS! (e.g., /home/jannik/hunpos)
+# hunpos_model_name = SET ME IN CONFIG.PROPS! (e.g., model.hunpos.mte5.defnpout)
+
+
 
 # DO NOT CHANGE THE FOLLOWING
 ################################
