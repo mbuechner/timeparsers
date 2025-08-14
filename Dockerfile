@@ -23,7 +23,9 @@ RUN set -eux && \
     chmod +x "${TREETAGGER_HOME}/install-tagger.sh" && \
     cd "${TREETAGGER_HOME}" && \
     ( yes "" | "./install-tagger.sh" || true ) && \
-    rm -f "${TREETAGGER_HOME}/*.tar.gz" "${TREETAGGER_HOME}/*.par.gz" "${TREETAGGER_HOME}/install-tagger.sh"
+    rm -f "${TREETAGGER_HOME}/*.tar.gz" "${TREETAGGER_HOME}/*.par.gz" "${TREETAGGER_HOME}/install-tagger.sh" && \
+    # setze Leserechte für alle
+    chmod -R a+rX "${TREETAGGER_HOME}"
 
 # install Europeanas timeparser
 RUN git clone https://github.com/europeana/rd-normalisation-dates "/tmp/rd-normalisation-dates" && \
