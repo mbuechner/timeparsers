@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Timeparsers</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" />
+  <style>
+    .tab-content { 
+      border: 1px solid #dee2e6; 
+      border-top: none; 
+      border-radius: 0 0 0.5rem 0.5rem; 
+      padding: 1.5rem; 
+    }
+    .card { 
+      border-radius: 0.75rem; 
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05); 
+    }
+    #history-list .history-entry, #history-list-2 .history-entry { cursor: pointer; }
+    .history-entry:hover { background-color: #f8f9fa; }
+    mark { cursor: pointer; }
+    .debug-icon { cursor: pointer; vertical-align: middle; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .tooltip-inner { text-align: left; max-width: 600px; white-space: pre-wrap; font-family: monospace; }
+  </style>
+</head>
+<body>
+  <div class="container py-4">
+    <h1 class="mb-5">Timeparsers: Text zu Datum/ Zeitspanne</h1>
+
+    <ul class="nav nav-tabs" id="mainTabs" role="tablist">
+      <li class="nav-item flex-sm-fill text-sm-center" role="presentation">
+        <a class="nav-link active" id="tab1-tab" data-bs-toggle="tab" href="#tab1" role="tab" aria-controls="tab1" aria-selected="true">Timeparsers</a>
+      </li>
+      <li class="nav-item flex-sm-fill text-sm-center" role="presentation">
+        <a class="nav-link" id="tab2-tab" data-bs-toggle="tab" href="#tab2" role="tab" aria-controls="tab2" aria-selected="false">Timestamp</a>
+      </li>
+    </ul>
+
+    <div class="tab-content" id="mainTabsContent">
+      <!-- Tab 1: Eingebettete Seite -->
+      <div class="tab-pane fade show active pt-5" id="tab1" role="tabpanel" aria-labelledby="tab1-tab" tabindex="0">
+        <h1 class="mb-4"></h1>
+
+        <form id="convert-form" class="mb-5">
+          <div class="input-group">
+            <input type="text" class="form-control" id="input-string" placeholder="Gib einen Text ein (z. B. '13. Mai 1978', 'Mai 1970 - Juni 1970')..." required>
+            <button class="btn btn-primary" type="submit">Umwandeln</button>
+          </div>
+        </form>
+
+        <div id="history" class="d-none">
+          <div class="row row-cols-1 row-cols-md-1 g-1 mt-1" id="history-list"></div>
+          <div class="d-flex justify-content-between align-items-center mt-2">
+            <button id="clear-history" class="btn btn-sm btn-outline-danger">Verlauf löschen</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: erweitert (eigene History + daysToISOJavaCompat) -->
+      <div class="tab-pane fade pt-5" id="tab2" role="tabpanel" aria-labelledby="tab2-tab" tabindex="0">
+        <h1 class="mb-4"></h1>
+
+        <form id="convert-form-2" class="mb-5">
+          <div class="input-group">
+            <input type="text" class="form-control" id="input-timestamp" placeholder="Gib einen Tages‑Timestamp ein (z. B. 0, 1, -719163)..." required>
+            <button class="btn btn-primary" type="submit">Umwandeln</button>
+          </div>
+        </form>
+
+        <div id="history-2" class="d-none">
+          <div class="row row-cols-1 row-cols-md-1 g-1 mt-1" id="history-list-2"></div>
+          <div class="d-flex justify-content-between align-items-center mt-2">
+            <button id="clear-history-2" class="btn btn-sm btn-outline-danger">Verlauf löschen</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Original JS der eingebetteten Seite (IDs/Logik beibehalten) + generische Vereinfachungen -->
+  <script>
+    // ===== Keys & Konstanten =====
+    const HISTORY_KEY  = 'string_conversion_history';   // Tab 1
+    const HISTORY2_KEY = 'timestamp_conversion_history'; // Tab 2
+    const TIME_LABELS = {
+        "time_12000": "Präkambrium",
+        "time_13000": "Paläozoikum",
+        "time_14000": "Trias",
+        "time_15000": "Jura",
+        "time_16000": "Kreide",
+        "time_17000": "Tertiär",
+        "time_18000": "Quartär",
+        "time_33000": "7. Jahrtausend vor Christus",
+        "time_34000": "6. Jahrtausend vor Christus",
+        "time_35000": "5. Jahrtausend vor Christus",
+        "time_36000": "4. Jahrtausend vor Christus",
+        "time_36100": "40. Jahrhundert vor Christus",
+        "time_36200": "39. Jahrhundert vor Christus",
+        "time_36300": "38. Jahrhundert vor Christus",
+        "time_36400": "37. Jahrhundert vor Christus",
+        "time_36500": "36. Jahrhundert vor Christus",
+        "time_36600": "35. Jahrhundert vor Christus",
+        "time_36700": "34. Jahrhundert vor Christus",
+        "time_36800": "33. Jahrhundert vor Christus",
+        "time_36900": "32. Jahrhundert vor Christus",
+        "time_36950": "31. Jahrhundert vor Christus",
+        "time_37000": "3. Jahrtausend vor Christus",
+        "time_37100": "30. Jahrhundert vor Christus",
+        "time_37200": "29. Jahrhundert vor Christus",
+        "time_37300": "28. Jahrhundert vor Christus",
+        "time_37400": "27. Jahrhundert vor Christus",
+        "time_37500": "26. Jahrhundert vor Christus",
+        "time_37600": "25. Jahrhundert vor Christus",
+        "time_37700": "24. Jahrhundert vor Christus",
+        "time_37800": "23. Jahrhundert vor Christus",
+        "time_37900": "22. Jahrhundert vor Christus",
+        "time_37950": "21. Jahrhundert vor Christus",
+        "time_38000": "2. Jahrtausend vor Christus",
+        "time_38100": "20. Jahrhundert vor Christus",
+        "time_38200": "19. Jahrhundert vor Christus",
+        "time_38300": "18. Jahrhundert vor Christus",
+        "time_38400": "17. Jahrhundert vor Christus",
+        "time_38500": "16. Jahrhundert vor Christus",
+        "time_38600": "15. Jahrhundert vor Christus",
+        "time_38700": "14. Jahrhundert vor Christus",
+        "time_38800": "13. Jahrhundert vor Christus",
+        "time_38900": "12. Jahrhundert vor Christus",
+        "time_38950": "11. Jahrhundert vor Christus",
+        "time_39000": "1. Jahrtausend vor Christus",
+        "time_39100": "10. Jahrhundert vor Christus",
+        "time_39200": "9. Jahrhundert vor Christus",
+        "time_39300": "8. Jahrhundert vor Christus",
+        "time_39400": "7. Jahrhundert vor Christus",
+        "time_39500": "6. Jahrhundert vor Christus",
+        "time_39600": "5. Jahrhundert vor Christus",
+        "time_39700": "4. Jahrhundert vor Christus",
+        "time_39800": "3. Jahrhundert vor Christus",
+        "time_39900": "2. Jahrhundert vor Christus",
+        "time_39950": "1. Jahrhundert vor Christus",
+        "time_60100": "1. Jahrhundert",
+        "time_60200": "2. Jahrhundert",
+        "time_60300": "3. Jahrhundert",
+        "time_60400": "4. Jahrhundert",
+        "time_60500": "5. Jahrhundert",
+        "time_60600": "6. Jahrhundert",
+        "time_60700": "7. Jahrhundert",
+        "time_60800": "8. Jahrhundert",
+        "time_60900": "9. Jahrhundert",
+        "time_61000": "10. Jahrhundert",
+        "time_61100": "11. Jahrhundert",
+        "time_61105": "1. Hälfte 11. Jahrhundert",
+        "time_61145": "2. Hälfte 11. Jahrhundert",
+        "time_61200": "12. Jahrhundert",
+        "time_61205": "1. Hälfte 12. Jahrhundert",
+        "time_61245": "2. Hälfte 12. Jahrhundert",
+        "time_61300": "13. Jahrhundert",
+        "time_61305": "1. Hälfte 13. Jahrhundert",
+        "time_61345": "2. Hälfte 13. Jahrhundert",
+        "time_61400": "14. Jahrhundert",
+        "time_61405": "1. Hälfte 14. Jahrhundert",
+        "time_61445": "2. Hälfte 14. Jahrhundert",
+        "time_61500": "15. Jahrhundert",
+        "time_61505": "1. Hälfte 15. Jahrhundert",
+        "time_61545": "2. Hälfte 15. Jahrhundert",
+        "time_61600": "16. Jahrhundert",
+        "time_61605": "1. Hälfte 16. Jahrhundert",
+        "time_61645": "2. Hälfte 16. Jahrhundert",
+        "time_61700": "17. Jahrhundert",
+        "time_61705": "1. Hälfte 17. Jahrhundert",
+        "time_61745": "2. Hälfte 17. Jahrhundert",
+        "time_61800": "18. Jahrhundert",
+        "time_61807": "1. Viertel 18. Jahrhundert",
+        "time_61825": "2. Viertel 18. Jahrhundert",
+        "time_61847": "3. Viertel 18. Jahrhundert",
+        "time_61875": "4. Viertel 18. Jahrhundert",
+        "time_61900": "19. Jahrhundert",
+        "time_61907": "1. Viertel 19. Jahrhundert",
+        "time_61925": "2. Viertel 19. Jahrhundert",
+        "time_61947": "3. Viertel 19. Jahrhundert",
+        "time_61975": "4. Viertel 19. Jahrhundert",
+        "time_62000": "20. Jahrhundert",
+        "time_62010": "1. Dekade 20. Jahrhundert",
+        "time_62020": "2. Dekade 20. Jahrhundert",
+        "time_62030": "3. Dekade 20. Jahrhundert",
+        "time_62040": "4. Dekade 20. Jahrhundert",
+        "time_62050": "5. Dekade 20. Jahrhundert",
+        "time_62060": "6. Dekade 20. Jahrhundert",
+        "time_62070": "7. Dekade 20. Jahrhundert",
+        "time_62080": "8. Dekade 20. Jahrhundert",
+        "time_62090": "9. Dekade 20. Jahrhundert",
+        "time_62095": "10. Dekade 20. Jahrhundert",
+        "time_62100": "21. Jahrhundert",
+        "time_62110": "1. Dekade 21. Jahrhundert",
+        "time_62120": "2. Dekade 21. Jahrhundert"
+      };
+
+    // ===== Utilities (zusammengeführt) =====
+    const escapeHtml = (str) => String(str)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+
+    function daysToISOJavaCompatWithNumber(days) {
+      const Z = Number(days) + 1_721_424; // 1970-01-01 -> 2440588
+      const CUTOVER_Z = 2_299_161;        // 1582-10-15
+      let y, m, d;
+      if (Z >= CUTOVER_Z) {
+        const a = Z + 32044;
+        const b = Math.floor((4 * a + 3) / 146097);
+        const c = a - Math.floor(146097 * b / 4);
+        const d1 = Math.floor((4 * c + 3) / 1461);
+        const e = c - Math.floor(1461 * d1 / 4);
+        const m1 = Math.floor((5 * e + 2) / 153);
+        d = e - Math.floor((153 * m1 + 2) / 5) + 1;
+        m = m1 + 3 - 12 * Math.floor(m1 / 10);
+        y = 100 * b + d1 - 4800 + Math.floor(m1 / 10);
+      } else {
+        const c = Z + 32082;
+        const d1 = Math.floor((4 * c + 3) / 1461);
+        const e = c - Math.floor(1461 * d1 / 4);
+        const m1 = Math.floor((5 * e + 2) / 153);
+        d = e - Math.floor((153 * m1 + 2) / 5) + 1;
+        m = m1 + 3 - 12 * Math.floor(m1 / 10);
+        y = d1 - 4800 + Math.floor(m1 / 10);
+      }
+      const yAdj = (y <= 0) ? y - 1 : y; // kein Jahr 0
+      const yStr = (0 <= yAdj && yAdj <= 9999) ? String(yAdj).padStart(4, '0') : yAdj;
+      const mStr = String(m).padStart(2, '0');
+      const dStr = String(d).padStart(2, '0');
+      return `${yStr}-${mStr}-${dStr}`;
+    }
+    
+    // Hilfsfunktion: BigInt-Floor-Division (wie Math.floor(a/b) – auch für Negative korrekt)
+    const floorDiv = (a, b) => {
+      let q = a / b;               // BigInt: trunc toward 0
+      const r = a % b;
+      if (r !== 0n && ((r > 0n) !== (b > 0n))) q -= 1n; // anpassen auf floor
+      return q;
+    };
+
+    function daysToISOJavaCompat(days) {
+      const D = (typeof days === 'bigint') ? days : BigInt(days);
+      const Z = D + 1_721_424n;          // 1970-01-01 -> 2440588
+      const CUTOVER_Z = 2_299_161n;      // 1582-10-15
+
+      let y, m, d;
+
+      if (Z >= CUTOVER_Z) {
+        const a  = Z + 32_044n;
+        const b  = floorDiv(4n * a + 3n, 146_097n);
+        const c  = a - floorDiv(146_097n * b, 4n);
+        const d1 = floorDiv(4n * c + 3n, 1_461n);
+        const e  = c - floorDiv(1_461n * d1, 4n);
+        const m1 = floorDiv(5n * e + 2n, 153n);
+
+        d = e - floorDiv(153n * m1 + 2n, 5n) + 1n;
+        m = m1 + 3n - 12n * floorDiv(m1, 10n);
+        y = 100n * b + d1 - 4_800n + floorDiv(m1, 10n);
+      } else {
+        const c  = Z + 32_082n;
+        const d1 = floorDiv(4n * c + 3n, 1_461n);
+        const e  = c - floorDiv(1_461n * d1, 4n);
+        const m1 = floorDiv(5n * e + 2n, 153n);
+
+        d = e - floorDiv(153n * m1 + 2n, 5n) + 1n;
+        m = m1 + 3n - 12n * floorDiv(m1, 10n);
+        y = d1 - 4_800n + floorDiv(m1, 10n);
+      }
+
+      // Kein Jahr 0 (astronomisches Jahr -> historisches)
+      const yAdj = (y <= 0n) ? (y - 1n) : y;
+
+      // Strings bauen
+      const yStr = (0n <= yAdj && yAdj <= 9_999n)
+        ? yAdj.toString().padStart(4, '0')
+        : yAdj.toString();
+      const mStr = m.toString().padStart(2, '0');
+      const dStr = d.toString().padStart(2, '0');
+
+      return `${yStr}-${mStr}-${dStr}`;
+    }
+
+
+    const withTimespanTooltip = (value) => {
+      const str = String(value).trim();
+      const m = str.match(/^(?:(?<prefix>[^\s|]+(?:\|[^\s|]+)*)\s+)?(?<a>-?\d+)\|(?<b>-?\d+)$/);
+      if (!m) return escapeHtml(value);
+
+      const prefix = m.groups?.prefix || "";
+      const start = BigInt(m.groups.a);
+      const end   = BigInt(m.groups.b);
+
+      const renderNum = (n) =>
+        `<mark data-bs-toggle="tooltip" title="${escapeHtml(daysToISOJavaCompat(n))}">${escapeHtml(n.toString())}</mark>`;
+
+      let prefixHtml = "";
+      if (prefix) {
+        if (/^time_\d+(?:\|time_\d+)*$/.test(prefix)) {
+          // bekannte time_* Codes → mark mit Label
+          prefixHtml = prefix.split('|')
+            .map(code =>
+              `<mark data-bs-toggle="tooltip" title="${escapeHtml((TIME_LABELS?.[code]) || code)}">${escapeHtml(code)}</mark>`
+            )
+            .join('|') + '&#160;';
+        } else {
+          // alles andere → plain Text
+          prefixHtml = escapeHtml(prefix) + '&#160;';
+        }
+      }
+
+      return `${prefixHtml}${renderNum(start)}|${renderNum(end)}`;
+    };
+
+
+    // LocalStorage helpers (generisch)
+    const getHistoryGeneric = (key) => { try { return JSON.parse(localStorage.getItem(key)) || []; } catch { return []; } };
+    const setHistoryGeneric = (key, arr, limit = 20) => localStorage.setItem(key, JSON.stringify(arr.slice(0, limit)));
+    const pushHistoryGeneric = (key, entry, renderFn) => { const h = getHistoryGeneric(key); h.unshift(entry); setHistoryGeneric(key, h); renderFn(); };
+
+    // Render helpers
+    const renderListGeneric = (key, listSel, containerSel, cardRenderer) => {
+      const history = getHistoryGeneric(key);
+      const $list = $(listSel);
+      $list.empty();
+      if (!history.length) { $(containerSel).addClass('d-none'); return; }
+      history.forEach(entry => $list.append(cardRenderer(entry)));
+      $(containerSel).removeClass('d-none');
+      enableTooltips();
+    };
+
+    const clearGeneric = (key, listSel, containerSel) => {
+      localStorage.removeItem(key);
+      $(listSel).empty();
+      $(containerSel).addClass('d-none');
+    };
+
+    // Karten-Renderer
+    const renderCardTab1 = (entry) => {
+      const ddbHtml    = entry.ddb     ? withTimespanTooltip(entry.ddb)     : '';
+      const ddbNewHtml = entry.ddbNew  ? withTimespanTooltip(entry.ddbNew)  : '';
+      let duckHtml     = entry.duckling? escapeHtml(entry.duckling)         : '-';
+      if (entry.duckling_debug) {
+        let pretty = '';
+        try { pretty = JSON.stringify(JSON.parse(entry.duckling_debug), null, 2); } catch { pretty = String(entry.duckling_debug); }
+        const tooltipHtml = escapeHtml(pretty);
+        duckHtml = `${duckHtml} <i class="bi bi-info-circle-fill debug-icon text-secondary ms-1" data-bs-toggle="tooltip" data-bs-html="true" title="${tooltipHtml}"></i>`;
+      }
+      let heidelHtml = entry.heideltime ? escapeHtml(entry.heideltime) : '-';
+      if (entry.heideltime_debug) {
+        const tooltipHtml = escapeHtml(String(entry.heideltime_debug));
+        heidelHtml = `${heidelHtml} <i class="bi bi-info-circle-fill debug-icon text-secondary ms-1" data-bs-toggle="tooltip" data-bs-html="false" title="${tooltipHtml}"></i>`;
+      }
+      const $el = $(
+        `<div class="col">
+          <div class="card history-entry w-100 mb-3">
+            <div class="card-body">
+              <h5 class="card-title">${escapeHtml(entry.input)}</h5>
+              <dl class="card-text row">
+                <dt class="col-sm-3">DDB‑Timeparser</dt>
+                <dd class="col-sm-9">${ddbHtml}</dd>
+                <dt class="col-sm-3">DDB‑Timeparser (überarbeitet)</dt>
+                <dd class="col-sm-9">${ddbNewHtml}</dd>
+                <dt class="col-sm-3">Europeana</dt>
+                <dd class="col-sm-9">${escapeHtml(entry.europeana)}</dd>
+                <dt class="col-sm-3">Duckling</dt>
+                <dd class="col-sm-9">${duckHtml}</dd>
+                <dt class="col-sm-3">Heideltime</dt>
+                <dd class="col-sm-9">${heidelHtml}</dd>
+              </dl>
+            </div>
+          </div>
+        </div>`
+      );
+      // Data am klickbaren Element speichern
+      $el.find('.history-entry').data('entry', entry);
+      return $el;
+    };
+
+    const renderCardTab2 = (entry) => {
+      const $el = $(
+        `<div class="col">
+          <div class="card history-entry w-100 mb-3">
+            <div class="card-body">
+              <h5 class="card-title">${escapeHtml(entry.input)}</h5>
+              <dl class="card-text row">
+                <dt class="col-sm-3">ISO‑Datum</dt>
+                <dd class="col-sm-9">${escapeHtml(entry.iso)}</dd>
+              </dl>
+            </div>
+          </div>
+        </div>`
+      );
+      // Data am klickbaren Element speichern
+      $el.find('.history-entry').data('entry', entry);
+      return $el;
+    };
+
+    // Öffentliche Tab‑spezifische Wrapper (behalten bestehende Funktionsnamen/IDs)
+    const renderHistory   = () => renderListGeneric(HISTORY_KEY,  '#history-list',  '#history',  renderCardTab1);
+    const renderHistory2  = () => renderListGeneric(HISTORY2_KEY, '#history-list-2', '#history-2', renderCardTab2);
+    const clearHistory    = () => clearGeneric(HISTORY_KEY,  '#history-list',  '#history');
+    const clearHistory2   = () => clearGeneric(HISTORY2_KEY, '#history-list-2', '#history-2');
+
+    const addToHistory = (input, data) => {
+      pushHistoryGeneric(HISTORY_KEY, {
+        input,
+        ddb:        data?.parser?.ddb?.status === 'ok' ? data.parser.ddb.value : '-',
+        ddbNew:     data?.parser?.ddbNew?.status === 'ok' ? data.parser.ddbNew.value : '-',
+        europeana:  data?.parser?.europeana?.status === 'ok' ? data.parser.europeana.value : '-',
+        duckling:   data?.parser?.duckling?.status === 'ok' ? data.parser.duckling.value : '-',
+        duckling_debug: data?.parser?.duckling?.debug ?? null,
+        heideltime: data?.parser?.heideltime?.status === 'ok' ? data.parser.heideltime.value : '-',
+        heideltime_debug: data?.parser?.heideltime?.debug ?? null
+      }, renderHistory);
+    };
+
+    const addToHistory2 = (input, iso) => pushHistoryGeneric(HISTORY2_KEY, { input, iso }, renderHistory2);
+
+    // Tooltips + URL‑Helfer
+    function enableTooltips() { document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el)); }
+    function currentDir() { let p = location.pathname || '/'; if (!p.endsWith('/')) p += '/'; return p || '/'; }
+    function buildApiUrl(endpoint, params = {}) {
+      const baseHref = location.origin + currentDir();
+      const url = new URL(String(endpoint).replace(/^\/+/, ''), baseHref);
+      Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+      return url.toString();
+    }
+
+    // Smooth scroll + Fokus zum Ziel-Input
+    function scrollToAndFocus(selector, offset = 120) {
+      const el = document.querySelector(selector);
+      if (!el) return;
+      const y = el.getBoundingClientRect().top + window.pageYOffset - offset;
+      window.scrollTo({ top: y, behavior: 'smooth' });
+      setTimeout(() => { try { el.focus({ preventScroll: true }); } catch { el.focus(); } }, 350);
+    }
+
+    // ===== INIT =====
+    $(document).ready(function () {
+      // Tab 1
+      renderHistory();
+      $('#convert-form').on('submit', function (e) {
+        e.preventDefault();
+        const inputVal = $('#input-string').val().trim();
+        if (!inputVal) return;
+        $.getJSON(buildApiUrl('parse', { value: inputVal }), function (data) {
+          addToHistory(inputVal, data);
+          $('#input-string').val('');
+        });
+      });
+      $('#history-list').on('click', '.history-entry', function (e) {
+        const entry = $(this).data('entry') || $(e.target).closest('.history-entry').data('entry');
+        if (!entry) return;
+        $('#input-string').val(entry.input);
+        scrollToAndFocus('#input-string');
+      });
+      $('#clear-history').on('click', clearHistory);
+
+      // Tab 2
+      renderHistory2();
+      $('#convert-form-2').on('submit', function (e) {
+        e.preventDefault();
+        const raw = $('#input-timestamp').val().trim();
+        if (!raw) return;
+        const n = parseInt(raw, 10);
+        if (Number.isNaN(n)) return;
+        addToHistory2(raw, daysToISOJavaCompat(n));
+        $('#input-timestamp').val('');
+      });
+      $('#history-list-2').on('click', '.history-entry', function (e) {
+        const entry = $(this).data('entry') || $(e.target).closest('.history-entry').data('entry');
+        if (!entry) return;
+        $('#input-timestamp').val(entry.input);
+        scrollToAndFocus('#input-timestamp');
+      });
+      $('#clear-history-2').on('click', clearHistory2);
+    });
+  </script>
+</body>
+</html>
