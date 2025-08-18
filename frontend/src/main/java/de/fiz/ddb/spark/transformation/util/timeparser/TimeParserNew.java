@@ -312,7 +312,7 @@ public class TimeParserNew {
             }
         }
         if (facetTokens.isEmpty()) {
-            return null;
+            return "";
         } else {
             for (String facetToken : facetTokens) {
                 if (facetString.length() > 0) {
