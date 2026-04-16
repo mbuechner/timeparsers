@@ -9,10 +9,10 @@
         <version>4.0.5</version>
         <relativePath /> <!-- lookup parent from repository -->
     </parent>
-    <groupId>de.ddb.labs.timeparsers</groupId>
-    <artifactId>frontend</artifactId>
+    <groupId>de.ddb.labs</groupId>
+    <artifactId>timeparsers</artifactId>
     <version>0.0.2-SNAPSHOT</version>
-    <name>timeparsers-frontend</name>
+    <name>timeparsers</name>
     <description>Webside to test Timeparse-Implementations of Deutsche Digitale Bibliothek</description>
     <url>https://github.com/mbuechner/timeparsers</url>
 
