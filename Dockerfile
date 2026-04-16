@@ -34,7 +34,8 @@ RUN git clone https://github.com/europeana/rd-normalisation-dates "/tmp/rd-norma
 
 # install Timeparser
 WORKDIR /home/timeparsers/
-COPY frontend .
+COPY pom.xml ./
+COPY src ./src
 RUN mvn -B clean package
 
 # cleanup

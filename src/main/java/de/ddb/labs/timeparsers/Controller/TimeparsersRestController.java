@@ -125,8 +125,8 @@ class TimeparsersRestController {
                 DocumentType.SCIENTIFIC, // oder COLLOQUIAL/NARRATIVES – je nach Texttyp
                 OutputType.TIMEML, // alternativ XMI
                 tempFile.toString(),
-                POSTagger.NO,
-                // POSTagger.TREETAGGER, // bessere Qualität als NO
+                // POSTagger.NO,
+                POSTagger.TREETAGGER, // bessere Qualität als NO
                 false // intervall tagging
         );
 
