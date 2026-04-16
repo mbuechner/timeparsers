@@ -1,4 +1,4 @@
-FROM public.ecr.aws/docker/library/eclipse-temurin:21-alpine
+FROM public.ecr.aws/docker/library/eclipse-temurin:25-alpine
 LABEL org.opencontainers.image.authors="m.buechner@dnb.de"
 ENV TZ=Europe/Berlin
 ENV MAVEN_CONFIG=/home/timeparsers/.m2

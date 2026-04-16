@@ -36,3 +36,4 @@ external/
 /frontend/src/main/resources/.env
 /Dockerfile.bak
 /frontend/src/main/resources/templates/index_old.html
+/.env
